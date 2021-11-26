@@ -27,14 +27,11 @@ contract SyrupBar is BEP20('SyrupBar Token', 'SYRUP') {
         cake = _cake;
     }
 
-    // Safe cake transfer function, just in case if rounding error causes pool to not have enough CAKEs.
+    // Safe cake transfer function, fail if not having enough CAKEs.
     function safeCakeTransfer(address _to, uint256 _amount) public onlyOwner {
         uint256 cakeBal = cake.balanceOf(address(this));
-        if (_amount > cakeBal) {
-            cake.transfer(_to, cakeBal);
-        } else {
-            cake.transfer(_to, _amount);
-        }
+        require(cakeBal >= _amount, "CAKE balance not enough");
+        cake.transfer(_to, _amount);
     }
 
     // Copied and modified from YAM code:
