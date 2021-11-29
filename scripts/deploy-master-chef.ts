@@ -10,7 +10,7 @@ import {
 import { TransactionSubmitter } from "./TransactionSubmitter";
 
 import MasterChef from "../artifacts/contracts/MasterChef.sol/MasterChef.json";
-import Ownable from "../artifacts/@openzeppelin/contracts/access/Ownable.sol/Ownable.json";
+import MonsterToken from "../artifacts/contracts/MonsterToken.sol/MonsterToken.json";
 
 type TransactionResponse = providers.TransactionResponse;
 
@@ -56,7 +56,7 @@ async function main() {
   const monsterAddress = monsterTxReceipt.contractAddress;
   const monster = new Contract(
     monsterAddress,
-    Ownable.abi,
+    MonsterToken.abi,
     deployer,
   ) as IOwnable;
 
