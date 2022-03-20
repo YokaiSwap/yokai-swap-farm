@@ -63,7 +63,7 @@ contract TimelessStakingRewards is
     }
 
     function rewardPerToken() public view returns (uint256) {
-        if (_totalSupply == 0) {
+        if (_totalSupply == 0 || lastTimeRewardApplicable() < lastUpdateTime) {
             return rewardPerTokenStored;
         }
         return
@@ -142,8 +142,12 @@ contract TimelessStakingRewards is
         emit RewardAdded(reward);
     }
 
-    function updateRewardRate(uint256 _rewardPerSecond) external onlyOwner updateReward(address(0)) {
-      rewardRate = _rewardPerSecond;
+    function updateRewardRate(uint256 _rewardPerSecond)
+        external
+        onlyOwner
+        updateReward(address(0))
+    {
+        rewardRate = _rewardPerSecond;
     }
 
     /* ========== MODIFIERS ========== */
