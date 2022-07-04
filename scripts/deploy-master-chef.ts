@@ -1,10 +1,17 @@
-import { Contract, ContractFactory, Overrides, providers } from "ethers";
+import {
+  Contract,
+  ContractFactory,
+  Overrides,
+  providers,
+} from "ethers";
 
 import {
   deployer,
   initGWAccountIfNeeded,
   isGodwoken,
   networkSuffix,
+  formatUnits,
+  getGasPrice,
 } from "./common";
 
 import { TransactionSubmitter } from "./TransactionSubmitter";
@@ -24,18 +31,26 @@ interface IOwnable extends Contract {
 const deployerAddress = deployer.address;
 
 const txOverrides = {
-  gasPrice: isGodwoken ? 0 : undefined,
-  gasLimit: isGodwoken ? 12_500_000 : undefined,
+  gasLimit: isGodwoken ? 500_000 : undefined,
 };
+
+const { YOK_ADDRESS } = process.env;
+if (YOK_ADDRESS == null) {
+  console.log("process.env.YOK_ADDRESS is required");
+  process.exit(1);
+}
+const yokAddress = YOK_ADDRESS;
 
 async function main() {
   console.log("Deployer Ethereum address:", deployerAddress);
 
   await initGWAccountIfNeeded(deployerAddress);
 
-  const [yokAndMonsterTxReceipts, transactionSubmitter] = await Promise.all([
+  const gasPrice = await getGasPrice();
+
+  const [monsterTxReceipts, transactionSubmitter] = await Promise.all([
     TransactionSubmitter.loadReceipts(
-      `deploy-yok-and-monster${networkSuffix ? `-${networkSuffix}` : ""}.json`,
+      `deploy-monster${networkSuffix ? `-${networkSuffix}` : ""}.json`,
     ),
     TransactionSubmitter.newWithHistory(
       `deploy-master-chef${networkSuffix ? `-${networkSuffix}` : ""}.json`,
@@ -43,13 +58,7 @@ async function main() {
     ),
   ]);
 
-  const yokTxReceipt = yokAndMonsterTxReceipts[`Deploy YOKToken`];
-  if (yokTxReceipt == null) {
-    throw new Error("Failed to get YOK address");
-  }
-  const yokAddress = yokTxReceipt.contractAddress;
-
-  const monsterTxReceipt = yokAndMonsterTxReceipts[`Deploy MonsterToken`];
+  const monsterTxReceipt = monsterTxReceipts[`Deploy MonsterToken`];
   if (monsterTxReceipt == null) {
     throw new Error("Failed to get MONSTER address");
   }
@@ -75,7 +84,7 @@ async function main() {
         "16666666666666666", // 0.016666666666666666 per second, 1 YOK per minute
         Math.floor(Date.now() / 1000),
       );
-      tx.gasPrice = txOverrides.gasPrice;
+      tx.gasPrice = gasPrice;
       tx.gasLimit = txOverrides.gasLimit;
       return deployer.sendTransaction(tx);
     },
@@ -83,13 +92,27 @@ async function main() {
 
   const masterChefAddress = receipt.contractAddress;
   console.log(`    MasterChef address:`, masterChefAddress);
+  const masterChef = new Contract(masterChefAddress, MasterChef.abi, deployer);
+  console.log("    MasterChef.yok:", await masterChef.callStatic.yok());
+  console.log("    MasterChef.monster:", await masterChef.callStatic.monster());
+  console.log(
+    "    MasterChef.yokPerSecond:",
+    formatUnits(await masterChef.callStatic.yokPerSecond(), 18),
+    "YOK",
+  );
+  console.log(
+    "    MasterChef.startTime:",
+    (await masterChef.callStatic.startTime()).toString(),
+  );
 
   await transactionSubmitter.submitAndWait(
     `Transfer MONSTER ownership to MasterChef`,
     () => {
-      return monster.transferOwnership(masterChefAddress, txOverrides);
+      return monster.transferOwnership(masterChefAddress, {...txOverrides, gasPrice});
     },
   );
+
+  console.log("    MonsterToken.owner:", await monster.callStatic.owner());
 }
 
 main()

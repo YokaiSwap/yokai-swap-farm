@@ -1,12 +1,14 @@
-import { ContractFactory } from "ethers";
+import { ContractFactory, Contract } from "ethers";
 import { PolyjuiceJsonRpcProvider } from "@polyjuice-provider/ethers";
 
 import {
   deployer,
   initGWAccountIfNeeded,
   isGodwoken,
+  isGodwokenV0,
   networkSuffix,
   rpc,
+  getGasPrice
 } from "./common";
 
 import { TransactionSubmitter } from "./TransactionSubmitter";
@@ -16,27 +18,35 @@ import YOKVault from "../artifacts/contracts/YOKVault.sol/YOKVault.json";
 const deployerAddress = deployer.address;
 
 const txOverrides = {
-  gasPrice: isGodwoken ? 0 : undefined,
-  gasLimit: isGodwoken ? 12_500_000 : undefined,
+  gasLimit: isGodwoken ? 500_000 : undefined,
 };
+
+const { YOK_ADDRESS } = process.env;
+if (YOK_ADDRESS == null) {
+  console.log("process.env.YOK_ADDRESS is required");
+  process.exit(1);
+}
+const yokAddress = YOK_ADDRESS;
 
 async function main() {
   console.log("Deployer Ethereum address:", deployerAddress);
 
   await initGWAccountIfNeeded(deployerAddress);
 
+  const gasPrice = await getGasPrice();
+
   let deployerRecipientAddress = deployerAddress;
-  if (isGodwoken) {
+  if (isGodwokenV0) {
     const { godwoker } = rpc as PolyjuiceJsonRpcProvider;
     deployerRecipientAddress =
       godwoker.computeShortAddressByEoaEthAddress(deployerAddress);
     console.log("Deployer Godwoken address:", deployerRecipientAddress);
   }
 
-  const [yokAndMonsterTxReceipts, masterChefTxReceipts, transactionSubmitter] =
+  const [monsterTxReceipts, masterChefTxReceipts, transactionSubmitter] =
     await Promise.all([
       TransactionSubmitter.loadReceipts(
-        `deploy-yok-and-monster${
+        `deploy-monster${
           networkSuffix ? `-${networkSuffix}` : ""
         }.json`,
       ),
@@ -49,13 +59,7 @@ async function main() {
       ),
     ]);
 
-  const yokTxReceipt = yokAndMonsterTxReceipts[`Deploy YOKToken`];
-  if (yokTxReceipt == null) {
-    throw new Error("Failed to get YOK address");
-  }
-  const yokAddress = yokTxReceipt.contractAddress;
-
-  const monsterTxReceipt = yokAndMonsterTxReceipts[`Deploy MonsterToken`];
+  const monsterTxReceipt = monsterTxReceipts[`Deploy MonsterToken`];
   if (monsterTxReceipt == null) {
     throw new Error("Failed to get MONSTER address");
   }
@@ -82,7 +86,7 @@ async function main() {
         deployerRecipientAddress,
         deployerRecipientAddress,
       );
-      tx.gasPrice = txOverrides.gasPrice;
+      tx.gasPrice = gasPrice;
       tx.gasLimit = txOverrides.gasLimit;
       return deployer.sendTransaction(tx);
     },
@@ -90,6 +94,19 @@ async function main() {
 
   const yokVaultAddress = receipt.contractAddress;
   console.log(`    YOKVault address:`, yokVaultAddress);
+  const yokVault = new Contract(yokVaultAddress, YOKVault.abi, deployer);
+  console.log(`    YOKVault.token`, await yokVault.callStatic.token());
+  console.log(
+    `    YOKVault.receiptToken`,
+    await yokVault.callStatic.receiptToken(),
+  );
+  console.log(
+    `    YOKVault.masterchef`,
+    await yokVault.callStatic.masterchef(),
+  );
+  console.log(`    YOKVault.admin`, await yokVault.callStatic.admin());
+  console.log(`    YOKVault.treasury`, await yokVault.callStatic.treasury());
+  console.log("    YOKVault.owner:", await yokVault.callStatic.owner());
 }
 
 main()

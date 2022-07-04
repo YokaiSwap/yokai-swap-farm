@@ -5,7 +5,7 @@ import {
 } from "@polyjuice-provider/ethers";
 import dotenv from "dotenv";
 import axios from "axios";
-import { BigNumber, constants, ethers } from "ethers";
+import { ethers } from "ethers";
 import path from "path";
 
 console.log(
@@ -39,6 +39,7 @@ export const defaultDeployer = new ethers.Wallet(
 
 export const networkSuffix = NETWORK_SUFFIX;
 export const isGodwoken = networkSuffix?.startsWith("gw");
+export const isGodwokenV0 = isGodwoken && !networkSuffix?.startsWith("gw-v1");
 
 export const polyjuiceConfig: PolyjuiceConfig = {
   rollupTypeHash: process.env.ROLLUP_TYPE_HASH!,
@@ -56,13 +57,24 @@ export const polyjuiceDeployer = new PolyjuiceWallet(
   polyjuiceRPC,
 );
 
-export async function initGWAccountIfNeeded(account: string, usingRPC = rpc) {
+export async function initGWAccountIfNeeded(
+  account: string,
+  usingRPC = polyjuiceRPC,
+) {
   if (!isGodwoken) {
     return;
   }
 
-  const balance = await usingRPC.getBalance(account);
-  if (balance.gt(0)) {
+  let accountID: string | null = null;
+  try {
+    accountID = await usingRPC.godwoker.getAccountIdByEoaEthAddress(account);
+  } catch (err: any) {
+    if (!err?.message.includes("unable to fetch account id")) {
+      throw err;
+    }
+  }
+
+  if (accountID != null) {
     return;
   }
 
@@ -94,9 +106,30 @@ export async function initGWAccountIfNeeded(account: string, usingRPC = rpc) {
   console.log(`    Initialized, id:`, res.data.data.account_id);
 }
 
-export function unit(n: number): BigNumber {
-  return constants.WeiPerEther.mul(BigNumber.from(n * 1e6)).div(1e6);
+export function unit(n: number | string, decimals = 18): ethers.BigNumber {
+  return ethers.utils.parseUnits(n.toString(), decimals);
 }
 
-export const rpc = isGodwoken ? polyjuiceRPC : defaultRPC;
-export const deployer = isGodwoken ? polyjuiceDeployer : defaultDeployer;
+export function beautify(str = ""): string {
+  const reg =
+    str.indexOf(".") > -1 ? /(\d)(?=(\d{3})+\.)/g : /(\d)(?=(?:\d{3})+$)/g;
+  str = str.replace(reg, "$1,");
+  return str.replace(/(\.[0-9]*[1-9]+)(0)*/, "$1");
+}
+
+export function formatUnits(
+  n: number | string,
+  decimals: string | number = 18,
+): string {
+  return beautify(ethers.utils.formatUnits(n.toString(), decimals));
+}
+
+export const rpc = isGodwokenV0 ? polyjuiceRPC : defaultRPC;
+export const deployer = isGodwokenV0 ? polyjuiceDeployer : defaultDeployer;
+
+export async function getGasPrice() {
+  const gasPrice = await rpc.getGasPrice();
+  console.log("Gas price:", formatUnits(gasPrice.toString(), "gwei"), "Gwei");
+
+  return gasPrice;
+}

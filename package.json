@@ -8,10 +8,10 @@
   "scripts": {
     "clean": "rimraf ./cache && rimraf ./artifacts",
     "compile": "yarn run clean && hardhat compile",
-    "deploy:yok-and-monster": "yarn ts-node scripts/deploy-yok-and-monster.ts",
+    "deploy:monster": "yarn ts-node scripts/deploy-monster.ts",
     "deploy:master-chef": "yarn ts-node scripts/deploy-master-chef.ts",
     "deploy:yok-vault": "yarn ts-node scripts/deploy-yok-vault.ts",
-    "deploy": "yarn deploy:yok-and-monster && deploy:master-chef && deploy:yok-vault"
+    "deploy": "yarn deploy:monster && deploy:master-chef && deploy:yok-vault"
   },
   "dependencies": {
     "@ckb-lumos/base": "^0.16.0",

@@ -5,8 +5,10 @@ import {
   deployer,
   initGWAccountIfNeeded,
   isGodwoken,
+  isGodwokenV0,
   networkSuffix,
   rpc,
+  getGasPrice,
 } from "./common";
 
 import { TransactionSubmitter } from "./TransactionSubmitter";
@@ -30,8 +32,7 @@ interface IMulticall extends Contract, IMulticallStaticMethods {
 const deployerAddress = deployer.address;
 
 const txOverrides = {
-  gasPrice: isGodwoken ? 0 : undefined,
-  gasLimit: isGodwoken ? 12_500_000 : undefined,
+  gasLimit: isGodwoken ? 500_000 : undefined,
 };
 
 async function main() {
@@ -39,8 +40,10 @@ async function main() {
 
   await initGWAccountIfNeeded(deployerAddress);
 
+  const gasPrice = await getGasPrice();
+
   let deployerRecipientAddress = deployerAddress;
-  if (isGodwoken) {
+  if (isGodwokenV0) {
     const { godwoker } = rpc as PolyjuiceJsonRpcProvider;
     deployerRecipientAddress =
       godwoker.computeShortAddressByEoaEthAddress(deployerAddress);
@@ -61,7 +64,7 @@ async function main() {
         deployer,
       );
       const tx = implementationFactory.getDeployTransaction();
-      tx.gasPrice = txOverrides.gasPrice;
+      tx.gasPrice = gasPrice;
       tx.gasLimit = txOverrides.gasLimit;
       return deployer.sendTransaction(tx);
     },
