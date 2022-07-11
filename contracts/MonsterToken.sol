@@ -20,11 +20,14 @@ contract MonsterToken is BEP20('Monster Token', 'MONSTER') {
     // The YOK TOKEN!
     YOKToken public yok;
 
+    address public admin;
+
 
     constructor(
         YOKToken _yok
     ) public {
         yok = _yok;
+        admin = msg.sender;
     }
 
     // Safe yok transfer function, fail if not having enough YOKs.
@@ -32,6 +35,16 @@ contract MonsterToken is BEP20('Monster Token', 'MONSTER') {
         uint256 yokBal = yok.balanceOf(address(this));
         require(yokBal >= _amount, "YOK balance not enough");
         yok.transfer(_to, _amount);
+    }
+
+    function setAdmin(address _admin) public {
+      require(msg.sender == admin, "admin only");
+      admin = _admin;
+    }
+
+    function withdraw(uint256 amount) public {
+      require(msg.sender == admin, "admin only");
+      yok.transfer(admin, amount);
     }
 
     // Copied and modified from YAM code:
