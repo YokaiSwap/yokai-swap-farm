@@ -83,6 +83,7 @@ async function main() {
         // TODO: replace with production value
         "16666666666666666", // 0.016666666666666666 per second, 1 YOK per minute
         Math.floor(Date.now() / 1000),
+        10,
       );
       tx.gasPrice = gasPrice;
       tx.gasLimit = txOverrides.gasLimit;

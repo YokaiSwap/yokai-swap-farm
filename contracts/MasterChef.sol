@@ -81,6 +81,8 @@ contract MasterChef is Ownable {
     // The timestamp when YOK mining starts.
     uint256 public startTime;
 
+    uint256 public stakingPoolRewardPercentage;
+
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
@@ -89,7 +91,8 @@ contract MasterChef is Ownable {
         YOKToken _yok,
         MonsterToken _monster,
         uint256 _yokPerSecond,
-        uint256 _startTime
+        uint256 _startTime,
+        uint256 _stakingPoolRewardPercentage
     ) public {
         yok = _yok;
         monster = _monster;
@@ -107,6 +110,8 @@ contract MasterChef is Ownable {
 
         totalAllocPoint = 1000;
 
+        require(_stakingPoolRewardPercentage < 100, "stakingPoolRewardPercentage >= 100");
+        stakingPoolRewardPercentage = _stakingPoolRewardPercentage;
     }
 
     function updateMultiplier(uint256 multiplierNumber) public onlyOwner {
@@ -159,7 +164,7 @@ contract MasterChef is Ownable {
             points = points.add(poolInfo[pid].allocPoint);
         }
         if (points != 0) {
-            points = points.div(9);
+            points = points.mul(stakingPoolRewardPercentage).div(100 - stakingPoolRewardPercentage);
             totalAllocPoint = totalAllocPoint.sub(poolInfo[0].allocPoint).add(points);
             poolInfo[0].allocPoint = points;
         }
@@ -353,5 +358,12 @@ contract MasterChef is Ownable {
     // Safe yok transfer function, fail if not having enough YOKs.
     function safeYOKTransfer(address _to, uint256 _amount) internal {
         monster.safeYOKTransfer(_to, _amount);
+    }
+
+    function updateStakingPoolRewardPercentage(uint256 _stakingPoolRewardPercentage) public onlyOwner {
+        require(_stakingPoolRewardPercentage < 100, "stakingPoolRewardPercentage >= 100");
+
+        stakingPoolRewardPercentage = _stakingPoolRewardPercentage;
+        updateStakingPool();
     }
 }
